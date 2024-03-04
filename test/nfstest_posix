@@ -1127,6 +1127,14 @@ class PosixTest(TestUtil):
             fmsg =  ": expecting %s, got %s" % (expected, error)
         return (expr, fmsg)
 
+    def _oserrors(self, oserrno, errs):
+        for err in errs:
+            (expr, fmsg) = self._oserror(oserrno, err)
+            if expr:
+                return (expr, fmsg)
+        fmsg =  ": expecting %s, got %s" % (oserrno, errs)
+        return (False, fmsg)
+
     def open_test(self):
         """Verify POSIX API open() on a file. Verify file creation using
            the O_CREAT flag and verifying the file mode is set to the
@@ -1232,11 +1240,10 @@ class PosixTest(TestUtil):
                         fstat = posix.fstat(fd)
 
                     if ftype in [EXISTENT, SYMLINK]:
-                        if posix.O_CREAT in flags and posix.O_DIRECTORY in flags:
-                            # O_CREAT and O_DIRECTORY are set
-                            (expr, fmsg) = self._oserror(openerr, errno.EINVAL)
-                            msg = "open - opening %s should return EINVAL error when O_CREAT|O_DIRECTORY is used" % fmap[ftype]
-                            self.test(expr, msg, subtest=flag_str, failmsg=fmsg)
+                        # NOTE(zhitaoli): The behaviour depends on different linux kernel versions, which is unspecified.
+                        if posix.O_DIRECTORY in flags and posix.O_CREAT in flags:
+                            msg = "open - opening %s should be unspecified when O_DIRECTORY|O_CREAT is used" % fmap[ftype]
+                            self.test(True, msg, subtest=flag_str)
                         elif posix.O_EXCL in flags and posix.O_CREAT in flags:
                             # O_EXCL and O_CREAT are set
                             (expr, fmsg) = self._oserror(openerr, errno.EEXIST)
@@ -1244,9 +1251,6 @@ class PosixTest(TestUtil):
                             self.test(expr, msg, subtest=flag_str, failmsg=fmsg)
                         elif openerr != 0 and posix.O_EXCL in flags and posix.O_CREAT not in flags:
                             msg = "open - opening %s should be unspecified when O_EXCL is used and O_CREAT is not specified" % fmap[ftype]
-                            self.test(True, msg, subtest=flag_str)
-                        elif posix.O_DIRECTORY in flags and posix.O_CREAT in flags:
-                            msg = "open - opening %s should be unspecified when O_DIRECTORY|O_CREAT is used" % fmap[ftype]
                             self.test(True, msg, subtest=flag_str)
                         elif posix.O_DIRECTORY in flags:
                             # O_DIRECTORY is set
